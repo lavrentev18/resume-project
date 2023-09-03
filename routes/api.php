@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('register', [AuthController::class, 'register'])
     ->middleware('restrictothers');
 Route::post('login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('guest')->name('password.email');
 
 Route::group(['middleware' => 'auth:sanctum'], function() {
     Route::get('users', [UserController::class, 'index']);

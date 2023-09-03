@@ -48,4 +48,27 @@ class AuthController extends Controller
         return $request->user();
     }
 
+    public function forgotPassword(Request $request) {
+//        \Mail::raw('Text to e-mail', function($message) {
+//            $message->from('us@example.com', 'Laravel');
+//
+//            $message->to('foo@example.com')->cc('bar@example.com');
+//        });
+        $request->validate(['email' => 'required|email']);
+        $urlToReset = null;
+//
+        $status = \Password::sendResetLink(
+            $request->only('email'),
+            function ($user, $token) use (&$urlToReset) {
+                // TODO: Сделать письмо через класс Mail
+                // Записать в переменную $urlToReset (пример: "{url из конфига}/api/reset-password/{token}")
+            }
+        );
+
+        return ['url' => $urlToReset];
+//
+//        return $status === \Password::RESET_LINK_SENT
+//            ? back()->with(['status' => __($status)])
+//            : back()->withErrors(['email' => __($status)]);
+    }
 }

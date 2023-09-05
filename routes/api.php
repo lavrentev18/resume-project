@@ -3,8 +3,10 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\UserController;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,31 +19,70 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::post('register', [AuthController::class, 'register'])
-    ->middleware('restrictothers');
+Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
-    ->middleware('guest')->name('password.email');
+//Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+//    ->middleware('guest')->name('password.email');
 
 Route::group(['middleware' => 'auth:sanctum'], function() {
-    Route::get('users', [UserController::class, 'index']);
     Route::get('me', [AuthController::class, 'me']);
 
-    Route::delete('users/{id}', [UserController::class, 'delete']);
-    Route::post('users', [UserController::class, 'create']);
-    Route::put('users/{id}', [UserController::class, 'update']);
+    Route::resource('books', BookController::class);
 
 
-    Route::post('books', [BookController::class, 'create']);
-    Route::delete('books/{slug}', [BookController::class, 'delete']);
-    Route::put('books/{slug}/take/{id}', [BookController::class, 'take']);
-    Route::put('books/return/{slug}', [BookController::class, 'returnBook']);
-
-    Route::get('books', [BookController::class, 'index']);
     Route::get('books/search', [BookController::class, 'search']);
-    Route::put('books/{slug}/reserve/{id}', [BookController::class, 'reserve']);
-    Route::put('books/free/{slug}', [BookController::class, 'free']);
+    Route::put('books/{book:slug}/reserve/{user}', [BookController::class, 'reserve'])
+        ->missing(function (Request $request, ModelNotFoundException $notFoundException) {
+            $modelName = $notFoundException->getModel();
+
+            if (str_contains($modelName, 'Book')) {
+                throw new NotFoundHttpException('Книги не существует');
+            }
+
+            if (str_contains($modelName, 'User')) {
+                throw new NotFoundHttpException('Пользователя не существует');
+            }
+        });
+    Route::put('books/free/{book:slug}', [BookController::class, 'free'])
+        ->missing(function () {
+            throw new NotFoundHttpException('Книги не существует');
+        });
+
+    Route::group(['middleware' => 'role:admin'], function() {
+        Route::resource('users', UserController::class)->only([
+            'index', 'store', 'update', 'destroy'
+        ])->missing(function () {
+            throw new NotFoundHttpException('Пользователя не существует');
+        });
+
+    });
 
 
+
+    Route::group(['middleware' => 'role:admin,librarian'], function() {
+        Route::resource('books', BookController::class)->only([
+            'store', 'destroy'
+        ])->missing(function () {
+            throw new NotFoundHttpException('Книги не существует');
+        });
+
+        Route::put('books/{book:slug}/take/{user}', [BookController::class, 'take'])
+            ->missing(function (Request $request, ModelNotFoundException $notFoundException) {
+                $modelName = $notFoundException->getModel();
+
+                if (str_contains($modelName, 'Book')) {
+                    throw new NotFoundHttpException('Книги не существует');
+                }
+
+                if (str_contains($modelName, 'User')) {
+                    throw new NotFoundHttpException('Пользователя не существует');
+                }
+            });
+
+        Route::put('books/return/{book:slug}', [BookController::class, 'returnBook'])
+            ->missing(function () {
+                throw new NotFoundHttpException('Книги не существует');
+            });
+    });
 });
 

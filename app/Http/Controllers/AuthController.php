@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 
+use App\Http\Requests\UserForgotPasswordRequest;
+use App\Http\Requests\UserLoginRequest;
+use App\Http\Requests\UserRegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -12,31 +16,21 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request){
+    public function register(UserRegisterRequest $request){
+       $userData = $request->validated();
 
-       $userData =   $request->validate([
-            'name'     => 'required',
-            'email'    => 'required|email:rfc,dns',
-            'password' => 'required|min:8'
-        ]);
+       $userData['password'] = Hash::make($userData['password']);
 
-        $userData['password'] = Hash::make($userData['password']);
-
-
-        return User::create($userData);
+       return new UserResource(User::create($userData));
     }
 
-    public function login(Request $request) {
-        $userData =   $request->validate([
-            'email'    => 'required|email:rfc,dns',
-            'password' => 'required|min:8'
-        ]);
+    public function login(UserLoginRequest $request) {
+        $userData =   $request->validated();
 
         $user = User::where('email', '=', $userData['email'])->first();
 
-
-        if (!$user || Hash::check($user->password, $userData['password'])) {
-            throw new NotFoundHttpException('user not found');
+        if (!$user || !Hash::check($userData['password'], $user->password)) {
+            throw new NotFoundHttpException('Проверьте правильность введенных данных');
         }
         $token = $user->createToken('api');
 
@@ -45,16 +39,16 @@ class AuthController extends Controller
     }
 
     public function me(Request $request){
-        return $request->user();
+        return new UserResource($request->user());
     }
 
-    public function forgotPassword(Request $request) {
+    public function forgotPassword(UserForgotPasswordRequest $request) {
 //        \Mail::raw('Text to e-mail', function($message) {
 //            $message->from('us@example.com', 'Laravel');
 //
 //            $message->to('foo@example.com')->cc('bar@example.com');
 //        });
-        $request->validate(['email' => 'required|email']);
+        $request->validated();
         $urlToReset = null;
 //
         $status = \Password::sendResetLink(

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 
+use App\Http\Requests\BookCreateRequest;
+use App\Http\Resources\BookResource;
 use App\Jobs\RefreshReserv;
 use App\Models\Book;
 use App\Models\User;
@@ -18,61 +20,37 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class BookController extends Controller
 {
     public function index(Request  $request) {
-        return Book::all();
+        return BookResource::collection(Book::all());
     }
 
-    public function create(Request $request) {
-        if ($request->user()->isUser()) throw new NotFoundHttpException('Not Found');
-
-        $userData =   $request->validate([
-            'name'        => 'required',
-            'author'      => 'required',
-            'genre'       => ['required', Rule::in(Book::GENRES)],
-            'publisher'   => 'required',
-            'description' => 'required',
-        ]);
+    public function store(BookCreateRequest $request) {
+        $userData =   $request->validated();
 
         $userData['slug'] = Transliterator::transliterate($userData['name']);
-        return Book::create($userData);
+        return new BookResource(Book::create($userData));
     }
 
-    public function delete(Request $request, string $slug) {
-        if ($request->user()->isUser()) throw new NotFoundHttpException('Not Found');
-
-        $book = Book::whereSlug($slug)->first();
-        if (!$book) throw new NotFoundHttpException('Такой книги не существует');
-
+    public function destroy(Book $book) {
         $message = $book->delete() ? 'Книга успешно удалена': '?';
         return compact('message');
     }
 
-    public function take(Request $request, string $slug, string $id ) {
-        if ($request->user()->isUser()) throw new NotFoundHttpException('Not Found');
-
-        $book = Book::whereSlug($slug)->first();
-        if (!$book) throw new NotFoundHttpException('Такой книги не существует');
-        if (!User::find($id)) throw new NotFoundHttpException('Такого пользователя не существует');
-
+    public function take(Book $book, User $user) {
         if ($book->user_id && $book->take_at) throw new BadRequestHttpException('Книга уже выдана');
-        $book->user_id = $id;
+        $book->user_id = $user->id;
         $book->take_at = Carbon::now();
         $book->reserved_at = null;
         $book->save();
 
-        return $book;
+        return new BookResource($book);
     }
 
-    public function returnBook(Request $request, string $slug) {
-        if ($request->user()->isUser()) throw new NotFoundHttpException('Not Found');
-
-        $book = Book::whereSlug($slug)->first();
-        if (!$book) throw new NotFoundHttpException('Такой книги не существует');
-
+    public function returnBook(Book $book) {
         $book->user_id = null;
         $book->take_at = null;
         $book->save();
 
-        return $book;
+        return new BookResource($book);
     }
 
     public function search(Request $request) {
@@ -94,33 +72,26 @@ class BookController extends Controller
             if (!$elem) unset($book[$key]);
         }
 
-        return Book::query()->where($book)->get();
+        return new BookResource(Book::query()->where($book)->get());
     }
 
-    public function reserve(Request $request, string $slug, string $id) {
-        $book = Book::whereSlug($slug)->first();
-        if (!$book) throw new NotFoundHttpException('Такой книги не существует');
-        if (!User::find($id)) throw new NotFoundHttpException('Такого пользователя не существует');
-
+    public function reserve(Request $request, Book $book, User $user) {//string $slug, string $id) {
         if ($book->user_id && ($book->reserved_at || $book->take_at)) {
             throw new BadRequestHttpException('Книга уже выдана или зарезервирована');
         }
-        $book->user_id = $id;
+        $book->user_id = $user->id;
         $book->reserved_at = Carbon::now();
         $book->save();
 
         RefreshReserv::dispatch($book->id)->delay(Carbon::now()->addSeconds(30));
-        return $book;
+        return new BookResource($book);
     }
 
-    public function free(Request $request, string $slug) {
-        $book = Book::whereSlug($slug)->first();
-        if (!$book) throw new NotFoundHttpException('Такой книги не существует');
-
+    public function free(Request $request, Book $book) {
         $book->user_id = null;
         $book->reserved_at = null;
         $book->save();
 
-        return $book;
+        return new BookResource($book);
     }
 }

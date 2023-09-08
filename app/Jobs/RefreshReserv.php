@@ -33,14 +33,14 @@ class RefreshReserv implements ShouldQueue
     public function handle()
     {
         $maxReserve = 30;
-        $books = Book::all();
-        foreach ($books as $book) {
+        $books = Book::whereNotNull('reserved_at')->get();
+        $books->each(function ($book) use ($maxReserve) {
             $reserveTime = (new Carbon($book->reserved_at))->addSeconds($maxReserve);
             if ($reserveTime < Carbon::now()) {
                 $book->reserved_at = null;
                 $book->user_id = null;
                 $book->save();
             }
-        }
+        });
     }
 }

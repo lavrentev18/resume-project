@@ -19,7 +19,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class BookController extends Controller
 {
-    public function index(Request  $request) {
+    public function index() {
         return BookResource::collection(Book::all());
     }
 
@@ -75,7 +75,7 @@ class BookController extends Controller
         return new BookResource(Book::query()->where($book)->get());
     }
 
-    public function reserve(Request $request, Book $book, User $user) {//string $slug, string $id) {
+    public function reserve(Book $book, User $user) {
         if ($book->user_id && ($book->reserved_at || $book->take_at)) {
             throw new BadRequestHttpException('Книга уже выдана или зарезервирована');
         }
@@ -83,11 +83,10 @@ class BookController extends Controller
         $book->reserved_at = Carbon::now();
         $book->save();
 
-        RefreshReserv::dispatch($book->id)->delay(Carbon::now()->addSeconds(30));
         return new BookResource($book);
     }
 
-    public function free(Request $request, Book $book) {
+    public function free(Book $book) {
         $book->user_id = null;
         $book->reserved_at = null;
         $book->save();

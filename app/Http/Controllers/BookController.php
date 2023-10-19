@@ -86,10 +86,33 @@ class BookController extends Controller
         return new BookResource($book);
     }
 
-    public function free(Book $book) {
-        $book->user_id = null;
-        $book->reserved_at = null;
+    public function userReserve(Request $request, Book $book) {
+        if ($book->user_id && ($book->reserved_at || $book->take_at)) {
+            throw new BadRequestHttpException('Книга уже выдана или зарезервирована');
+        }
+        $user = $request->user();
+
+        $book->user_id = $user->id;
+        $book->reserved_at = Carbon::now();
         $book->save();
+
+        return new BookResource($book);
+    }
+
+    public function free(Request $request, Book $book) {
+        $user = $request->user();
+        if ($user->role != 3) {
+            $book->user_id = null;
+            $book->reserved_at = null;
+            $book->save();
+        } else {
+            if ($book->user_id != $user->id) {
+                return abort(400, 'Эта книга не была забронирована Вами');
+            }
+            $book->user_id = null;
+            $book->reserved_at = null;
+            $book->save();
+        }
 
         return new BookResource($book);
     }

@@ -25,11 +25,16 @@ Route::post('login', [AuthController::class, 'login']);
 Route::group(['middleware' => 'auth:sanctum'], function() {
     Route::get('me', [AuthController::class, 'me']);
 
-    Route::resource('books', BookController::class);
+    Route::put('books/reserve/{book:slug}', [BookController::class, 'userReserve'])
+        ->missing(function () {
+            throw new NotFoundHttpException('Книги не существует');
+        });
 
+    Route::resource('books', BookController::class);
 
     Route::get('books/search', [BookController::class, 'search']);
     Route::put('books/{book:slug}/reserve/{user}', [BookController::class, 'reserve'])
+        ->middleware('role:librarian')
         ->missing(function (Request $request, ModelNotFoundException $notFoundException) {
             $modelName = $notFoundException->getModel();
 
@@ -41,10 +46,14 @@ Route::group(['middleware' => 'auth:sanctum'], function() {
                 throw new NotFoundHttpException('Пользователя не существует');
             }
         });
+
+
+
     Route::put('books/free/{book:slug}', [BookController::class, 'free'])
         ->missing(function () {
             throw new NotFoundHttpException('Книги не существует');
         });
+
 
     Route::group(['middleware' => 'role:admin'], function() {
         Route::resource('users', UserController::class)->only([

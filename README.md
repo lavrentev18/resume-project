@@ -47,8 +47,8 @@
 - GET api/books/search - поиск книг
 - PUT api/books/{book:slug}/reserve/{user} - бронирование книги для пользователя
 - PUT api/books/free/{book:slug} - освобождение забронированной книги
-- PUT api/books/{book:slug}/take/{user} - взятие книги пользователем
-- PUT api/books/return/{book:slug} - возвращение книги пользователем
+- PUT api/books/{book:slug}/take/{user} - библиотекарь выдал книгу пользователю
+- PUT api/books/return/{book:slug} - библиотекарь получил книгу от пользователя
 
 #### Пользователи
 
